@@ -1,97 +1,54 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { FileText, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 export default function Auth() {
+  const { signIn, signUp } = useAuth();
   const [loading, setLoading] = useState<'idle' | 'login' | 'signup'>('idle');
-
 
   // LOGIN
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const navigate = useNavigate();
 
   // SIGNUP
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
-  const [signupPhone, setSignupPhone] = useState('');
 
   // LOGIN HANDLER
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading('login');
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: loginEmail,
-      password: loginPassword,
-    });
-
-    if (error) {
-      toast.error(error.message || 'Failed to login');
-    } else {
-      toast.success('Logged in successfully!');
-      if (!error) navigate('/dashboard');
-    }
-
+    const { error } = await signIn(loginEmail, loginPassword);
+    if (error) toast.error(error.message || 'Failed to login');
+    
     setLoading('idle');
   };
 
   // SIGNUP HANDLER
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (signupPassword.length < 8) {
       toast.error('Password must be at least 8 characters');
       return;
     }
 
-    if (!signupPhone) {
-      toast.error('Phone number is required');
-      return;
-    }
-
     setLoading('signup');
-
-    // 1. Sign up user
-    const { data, error } = await supabase.auth.signUp({
-      email: signupEmail,
-      password: signupPassword,
-    });
-
+    const { error } = await signUp(signupEmail, signupPassword, signupName);
     if (error) {
       toast.error(error.message || 'Failed to create account');
-      setLoading('idle');
-      return;
-    }
-
-    const userId = data.user?.id;
-
-    if (userId) {
-      // 2. Insert profile row with required fields
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: userId,
-        name: signupName,
-        phone: signupPhone,
-        created_at: new Date().toISOString(),
-      });
-
-      if (profileError) {
-        toast.error('Profile creation failed');
-      } else {
+    } else {
         toast.success('Account created! Check your email to confirm.');
       }
-    }
-
     setLoading('idle');
   };
 
@@ -183,17 +140,6 @@ export default function Auth() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-phone">Phone</Label>
-                    <Input
-                      id="signup-phone"
-                      type="tel"
-                      placeholder="+251912345678"
-                      value={signupPhone}
-                      onChange={(e) => setSignupPhone(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
                     <Input
                       id="signup-password"
@@ -228,3 +174,4 @@ export default function Auth() {
     </div>
   );
 }
+    
