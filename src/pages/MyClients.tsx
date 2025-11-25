@@ -18,9 +18,6 @@ export default function MyClients() {
     const [clients, setClients] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    console.log("Current user:", user);
-    console.log("Role:", role);
-
     useEffect(() => {
         if (!user || !role) return;
         loadClients();
