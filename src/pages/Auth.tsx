@@ -8,12 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { FileText, Loader2 } from 'lucide-react';
+import { FileText, Loader2, User, Briefcase } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Auth() {
   const [loading, setLoading] = useState<'idle' | 'login' | 'signup'>('idle');
-
 
   // LOGIN
   const [loginEmail, setLoginEmail] = useState('');
@@ -25,6 +24,13 @@ export default function Auth() {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupPhone, setSignupPhone] = useState('');
+
+  // TEST LOGIN FILLER
+  const fillTestLogin = (email: string, password: string) => {
+    setLoginEmail(email);
+    setLoginPassword(password);
+    toast.success('Test credentials filled');
+  };
 
   // LOGIN HANDLER
   const handleLogin = async (e: React.FormEvent) => {
@@ -40,7 +46,7 @@ export default function Auth() {
       toast.error(error.message || 'Failed to login');
     } else {
       toast.success('Logged in successfully!');
-      if (!error) navigate('/dashboard');
+      navigate('/dashboard');
     }
 
     setLoading('idle');
@@ -62,7 +68,6 @@ export default function Auth() {
 
     setLoading('signup');
 
-    // 1. Sign up user
     const { data, error } = await supabase.auth.signUp({
       email: signupEmail,
       password: signupPassword,
@@ -77,7 +82,6 @@ export default function Auth() {
     const userId = data.user?.id;
 
     if (userId) {
-      // 2. Insert profile row with required fields
       const { error: profileError } = await supabase.from('profiles').insert({
         id: userId,
         name: signupName,
@@ -133,6 +137,7 @@ export default function Auth() {
                       required
                     />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="login-password">Password</Label>
                     <Input
@@ -144,6 +149,7 @@ export default function Auth() {
                       required
                     />
                   </div>
+
                   <Button type="submit" className="w-full" disabled={loading === 'login'}>
                     {loading === 'login' ? (
                       <>
@@ -155,6 +161,37 @@ export default function Auth() {
                     )}
                   </Button>
                 </form>
+
+                {/* TEST ACCOUNTS */}
+                <div className="mt-4 border-t pt-3">
+                  <p className="text-xs font-medium mb-2">Test Accounts</p>
+
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start text-xs"
+                      onClick={() =>
+                        fillTestLogin('kalab@admin.com', 'kalabtadesse')
+                      }
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      Login as Admin
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start text-xs"
+                      onClick={() =>
+                        fillTestLogin('kalab@employee.com', 'kalabtadesse')
+                      }
+                    >
+                      <Briefcase className="mr-2 h-4 w-4" />
+                      Login as Employee
+                    </Button>
+                  </div>
+                </div>
               </TabsContent>
 
               {/* SIGNUP */}
@@ -171,6 +208,7 @@ export default function Auth() {
                       required
                     />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
                     <Input
@@ -182,6 +220,7 @@ export default function Auth() {
                       required
                     />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-phone">Phone</Label>
                     <Input
@@ -193,6 +232,7 @@ export default function Auth() {
                       required
                     />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
                     <Input
@@ -205,6 +245,7 @@ export default function Auth() {
                       minLength={8}
                     />
                   </div>
+
                   <Button type="submit" className="w-full" disabled={loading === 'signup'}>
                     {loading === 'signup' ? (
                       <>
