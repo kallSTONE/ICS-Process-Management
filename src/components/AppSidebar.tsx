@@ -74,7 +74,10 @@ export function AppSidebar() {
             <FileText className="h-5 w-5 text-primary-foreground" />
           </div>
           {!collapsed && (
-            <span className="font-semibold text-lg text-foreground">PassportFlow</span>
+            <div>
+              <span className="font-semibold text-lg text-foreground">PassportFlow</span>
+              <p className="text-muted-foreground text-sm">{user.user_metadata.name}</p>
+            </div>
           )}
         </div>
       </SidebarHeader>

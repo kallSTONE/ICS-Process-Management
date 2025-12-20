@@ -139,36 +139,68 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_clients: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          client_id: string | null
+          id: number
+          user_id: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          client_id?: string | null
+          id?: number
+          user_id?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          client_id?: string | null
+          id?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_clients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           bank_account_name: string | null
           bank_account_number: string | null
           bank_name: string | null
-          created_at: string
+          created_at: string | null
           id: string
           name: string
           phone: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
-          created_at?: string
+          created_at?: string | null
           id: string
           name: string
           phone: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
-          created_at?: string
+          created_at?: string | null
           id?: string
           name?: string
           phone?: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

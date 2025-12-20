@@ -26,15 +26,12 @@ export default function MyClients() {
     const loadClients = async () => {
         setLoading(true);
         try {
-            let query = supabase.from('clients').select('*').order('created_at', { ascending: false });
+            // Just select all clients, RLS will enforce employee restrictions automatically
+            const { data, error } = await supabase
+                .from('clients')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-            if (role === 'employee') {
-                query = query.eq('assigned_employee_id', user?.id).not('status', 'in', '(ics_payment_confirmed,pdf_downloaded,pdf_printed)');
-            } else if (role === 'payer') {
-                query = query.eq('assigned_payer_id', user?.id);
-            }
-
-            const { data, error } = await query;
             if (error) throw error;
             setClients(data || []);
         } catch (err) {
@@ -42,6 +39,17 @@ export default function MyClients() {
         } finally {
             setLoading(false);
         }
+
+        
+    const { data: assignments } = await supabase
+        .from('employee_clients')
+        .select('client_id')
+        .eq('user_id', user.id);
+    console.log("Assignments:", assignments);
+
+    const assignedIds = assignments?.map(a => a.client_id) || [];
+    console.log("Assigned IDs:", assignedIds);
+
     };
 
     if (loading) {
@@ -74,7 +82,7 @@ export default function MyClients() {
                         {clients.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={5} className="text-center text-muted-foreground">
-                                    No clients
+                                    No clients assigned to you
                                 </TableCell>
                             </TableRow>
                         ) : (

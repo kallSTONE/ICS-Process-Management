@@ -52,24 +52,39 @@ export default function Dashboard() {
           completed: completed || 0,
         });
       } else if (role === 'employee') {
-        const { count: totalClients } = await supabase
-          .from('clients')
-          .select('*', { count: 'exact', head: true })
-          .eq('assigned_employee_id', user?.id)
-          .not('status', 'in', '(ics_payment_confirmed,pdf_downloaded,pdf_printed)');
+        // Employees assignments are stored in `employee_clients` (not the
+        // `assigned_employee_id` column). Count by looking up assignments,
+        // then counting clients that match those IDs. This prevents counts
+        // from being zero when assignment is stored separately.
+        const { data: assignments } = await supabase
+          .from('employee_clients')
+          .select('client_id')
+          .eq('user_id', user?.id);
 
-        const { count: inProgress } = await supabase
-          .from('clients')
-          .select('*', { count: 'exact', head: true })
-          .eq('assigned_employee_id', user?.id)
-          .eq('status', 'in_progress');
+        const assignedIds = (assignments || []).map((a: any) => a.client_id).filter(Boolean);
 
-        setStats({
-          totalClients: totalClients || 0,
-          pendingPayments: 0,
-          inProgress: inProgress || 0,
-          completed: 0,
-        });
+        if (assignedIds.length === 0) {
+          setStats({ totalClients: 0, pendingPayments: 0, inProgress: 0, completed: 0 });
+        } else {
+          const { count: totalClients } = await supabase
+            .from('clients')
+            .select('*', { count: 'exact', head: true })
+            .in('id', assignedIds)
+            .not('status', 'in', '(ics_payment_confirmed,pdf_downloaded,pdf_printed)');
+
+          const { count: inProgress } = await supabase
+            .from('clients')
+            .select('*', { count: 'exact', head: true })
+            .in('id', assignedIds)
+            .eq('status', 'in_progress');
+
+          setStats({
+            totalClients: totalClients || 0,
+            pendingPayments: 0,
+            inProgress: inProgress || 0,
+            completed: 0,
+          });
+        }
       } else if (role === 'payer') {
         const { count: totalClients } = await supabase
           .from('clients')
@@ -110,7 +125,7 @@ export default function Dashboard() {
         {role === 'admin' && (<h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>)}
         {role === 'payer' && (<h1 className="text-3xl font-bold text-foreground">Payer Dashboard</h1>)}
         {role === 'employee' && (<h1 className="text-3xl font-bold text-foreground">Employee Dashboard</h1>)}
-        
+
         <p className="text-muted-foreground mt-1">
           Welcome back! Here's an overview of your activity.
         </p>

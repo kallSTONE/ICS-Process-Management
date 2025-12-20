@@ -16,7 +16,7 @@ export default function ClientDetails() {
     const [birthCertUrl, setBirthCertUrl] = useState<string | null>(null);
 
     const [applicationNumber, setApplicationNumber] = useState<string>("");
-    const [epNumber, setEpNumber] = useState<string>("");
+    const [initialPayment, setInitialPayment] = useState<string>("");
     const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
@@ -28,45 +28,22 @@ export default function ClientDetails() {
     const loadClient = async () => {
         setLoading(true);
         try {
-            // Admins should be able to fetch any client directly (no join).
-            if (role === "admin") {
-                const res = await supabase
-                    .from("clients")
-                    .select("*")
-                    .eq("id", id)
-                    .maybeSingle();
-
-                console.log("loadClient (admin) result:", res);
-                if (res.error) throw res.error;
-                setClient(res.data ?? null);
-                return;
-            }
-
-            // Employees: only fetch if they are assigned to the client.
-            if (role === "employee") {
-                const res = await supabase
-                    .from("clients")
-                    .select(`*, employee_clients!inner(user_id)`)
-                    .eq("id", id)
-                    .eq("employee_clients.user_id", user?.id)
-                    .maybeSingle();
-
-                console.log("loadClient (employee) result:", res);
-                if (res.error) throw res.error;
-                setClient(res.data ?? null);
-                return;
-            }
-
-            // Fallback: try to fetch client row directly (for other roles)
-            const res = await supabase
+            let query = supabase
                 .from("clients")
-                .select("*")
-                .eq("id", id)
-                .maybeSingle();
+                .select(
+                    `*, employee_clients!inner(user_id)` // join to get assignment
+                )
+                .eq("id", id);
 
-            console.log("loadClient (fallback) result:", res);
-            if (res.error) throw res.error;
-            setClient(res.data ?? null);
+            if (role === "employee") {
+                query = query.eq("employee_clients.user_id", user?.id);
+            }
+            
+
+            const { data, error } = await query.maybeSingle();
+            if (error) throw error;
+
+            setClient(data ?? null);
         } catch (err) {
             console.error("Error loading client details:", err);
         } finally {
@@ -78,7 +55,7 @@ export default function ClientDetails() {
         if (!client) return;
 
         setApplicationNumber(client.application_number ?? "");
-        setEpNumber(client.ep_number ?? "");
+        setInitialPayment(client.initial_payment ?? "");
 
         if (client.gov_id_url) generateSignedUrl(client.gov_id_url, setGovIdUrl);
         if (client.birth_certificate_url)
@@ -119,26 +96,20 @@ export default function ClientDetails() {
 
             const updates: any = {
                 application_number: applicationNumber,
-                ep_number: epNumber || null,
                 employee_screenshot_url: screenshotUrl,
                 status: "ics_payment_pending",
             };
 
-            const res = await supabase
+            const { data, error } = await supabase
                 .from("clients")
                 .update(updates)
-                .eq("id", id);
+                .eq("id", id)
+                .select()
+                .maybeSingle();
 
-            console.log("handleEmployeeSubmit result:", res);
+            if (error) throw error;
 
-            if (res.error) {
-                console.error("Supabase update error:", res.error);
-                toast.error(res.error.message || "Update failed");
-                return;
-            }
-
-            // Refresh client row (separate select to avoid PostgREST content-negotiation issues)
-            await loadClient();
+            setClient(data ?? null);
             toast.success("Initial payment submitted, status set to ICS Payment Pending");
         } catch (err: any) {
             console.error(err);
@@ -152,20 +123,16 @@ export default function ClientDetails() {
         if (!client) return;
         setSubmitting(true);
         try {
-            const res = await supabase
+            const { data, error } = await supabase
                 .from("clients")
                 .update({ status: "ics_payment_confirmed" })
-                .eq("id", client.id);
+                .eq("id", client.id)
+                .select()
+                .maybeSingle();
 
-            console.log("handleConfirmIcsPayment result:", res);
+            if (error) throw error;
 
-            if (res.error) {
-                console.error("Supabase confirm error:", res.error);
-                toast.error(res.error.message || "Confirm failed");
-                return;
-            }
-
-            await loadClient();
+            setClient(data ?? null);
             toast.success("ICS payment confirmed");
         } catch (err: any) {
             console.error(err);
@@ -223,25 +190,22 @@ export default function ClientDetails() {
                     <h2 className="text-lg font-semibold mb-3">Employee Actions</h2>
                     <input
                         className="p-2 border rounded w-full mb-2"
-                        placeholder="Application Number (alphanumeric)"
+                        placeholder="Application Number"
                         value={applicationNumber}
                         onChange={(e) => setApplicationNumber(e.target.value)}
                     />
                     <input
                         className="p-2 border rounded w-full mb-2"
-                        placeholder="EP Number (alphanumeric)"
-                        value={epNumber}
-                        onChange={(e) => setEpNumber(e.target.value)}
+                        placeholder="Initial Payment Amount"
+                        value={initialPayment}
+                        onChange={(e) => setInitialPayment(e.target.value)}
                     />
                     <input
                         type="file"
                         className="mb-2"
                         onChange={(e) => setScreenshotFile(e.target.files?.[0] ?? null)}
                     />
-                    <Button
-                        onClick={handleEmployeeSubmit}
-                        disabled={submitting || !/^[A-Za-z0-9-]+$/.test(applicationNumber) || !/^[A-Za-z0-9-]+$/.test(epNumber)}
-                    >
+                    <Button onClick={handleEmployeeSubmit} disabled={submitting}>
                         {submitting ? "Submitting..." : "Submit Initial Payment"}
                     </Button>
                 </div>
@@ -252,9 +216,9 @@ export default function ClientDetails() {
                 <div className="p-6 border rounded-lg bg-card shadow-sm">
                     <h2 className="text-lg font-semibold mb-3">ICS Payment</h2>
                     <Info label="Application Number" value={client.application_number} />
-                    <Info label="EP Number" value={client.ep_number} />
-                    {client.employee_screenshot_url && (
-                        <a href={supabase.storage.from("client-documents").getPublicUrl(client.employee_screenshot_url).data.publicUrl} target="_blank" rel="noreferrer">
+                    <Info label="Initial Payment" value={client.initial_payment} />
+                    {client.initial_payment_screenshot_url && (
+                        <a href={supabase.storage.from("client-documents").getPublicUrl(client.initial_payment_screenshot_url).data.publicUrl} target="_blank" rel="noreferrer">
                             View Screenshot
                         </a>
                     )}

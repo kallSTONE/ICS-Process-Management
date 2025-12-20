@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from 'next-themes';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
@@ -24,142 +25,144 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/auth/login" element={<Auth />} />
+    <ThemeProvider attribute="class" defaultTheme="system">
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/auth/login" element={<Auth />} />
 
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout>
-                    <Dashboard />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <Dashboard />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/clients"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <DashboardLayout>
-                    <Clients />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/clients/:id"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <DashboardLayout>
-                    <ClientDetails />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/clients"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <DashboardLayout>
+                      <Clients />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/clients/:id"
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'employee']}>
+                    <DashboardLayout>
+                      <ClientDetails />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/users"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <DashboardLayout>
-                    <Users />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/users"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <DashboardLayout>
+                      <Users />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/users/:id"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <DashboardLayout>
-                    <UserDetails />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/users/:id"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <DashboardLayout>
+                      <UserDetails />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/clients/create"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <DashboardLayout>
-                    <CreateClient />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/clients/create"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <DashboardLayout>
+                      <CreateClient />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/payments"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <DashboardLayout>
-                    <Payments />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/payments"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <DashboardLayout>
+                      <Payments />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/audit"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <DashboardLayout>
-                    <Audit />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/audit"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <DashboardLayout>
+                      <Audit />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/my-clients"
-              element={
-                <ProtectedRoute allowedRoles={['employee', 'payer']}>
-                  <DashboardLayout>
-                    <MyClients />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/my-clients"
+                element={
+                  <ProtectedRoute allowedRoles={['employee', 'payer']}>
+                    <DashboardLayout>
+                      <MyClients />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/my-history"
-              element={
-                <ProtectedRoute allowedRoles={['employee']}>
-                  <DashboardLayout>
-                    <MyHistory />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/my-history"
+                element={
+                  <ProtectedRoute allowedRoles={['employee']}>
+                    <DashboardLayout>
+                      <MyHistory />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/my-payments"
-              element={
-                <ProtectedRoute allowedRoles={['payer']}>
-                  <DashboardLayout>
-                    <MyPayments />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/my-payments"
+                element={
+                  <ProtectedRoute allowedRoles={['payer']}>
+                    <DashboardLayout>
+                      <MyPayments />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
     </TooltipProvider>
-  </QueryClientProvider>
+  </ThemeProvider>
+  </QueryClientProvider >
 );
 
 export default App;
