@@ -14,7 +14,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Plus, Search } from 'lucide-react';
+import { Eye, Pencil, Plus, Search, Trash2, UserPlus } from 'lucide-react';
 
 interface Client {
     id: string;
@@ -31,6 +31,28 @@ interface Employee {
     name: string;
 }
 
+const APPLICATION_TYPES = ['new_passport', 'renewal', 'replacement', 'other'] as const;
+
+const CLIENT_STATUSES = [
+    'initial_payment_pending',
+    'initial_payment_confirmed',
+    'in_progress',
+    'ics_payment_pending',
+    'ics_payment_confirmed',
+    'pdf_downloaded',
+    'pdf_printed',
+] as const;
+
+type ApplicationType = (typeof APPLICATION_TYPES)[number];
+type ClientStatus = (typeof CLIENT_STATUSES)[number];
+
+interface EditFormState {
+    full_name: string;
+    phone: string;
+    application_type: ApplicationType;
+    status: ClientStatus;
+}
+
 export default function Clients() {
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
@@ -42,117 +64,92 @@ export default function Clients() {
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
     const [assigning, setAssigning] = useState(false);
 
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [editingClient, setEditingClient] = useState<Client | null>(null);
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [editForm, setEditForm] = useState<EditFormState>({
+        full_name: '',
+        phone: '',
+        application_type: APPLICATION_TYPES[0],
+        status: CLIENT_STATUSES[0],
+    });
+
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deletingClient, setDeletingClient] = useState<Client | null>(null);
+    const [deleting, setDeleting] = useState(false);
+
     useEffect(() => {
         loadClients();
         loadEmployees();
     }, []);
 
-    // const loadClients = async () => {
-    //     setLoading(true);
-    //     try {
-    //         const { data: clientData, error } = await supabase
-    //             .from('clients')
-    //             .select(`*, employee_clients!inner(user_id)`);
-
-    //         if (error) throw error;
-
-    //         // Fetch assignments separately to get employee names
-    //         const { data: assignments } = await supabase
-    //             .from('employee_clients')
-    //             .select('client_id, user_id');
-
-    //         const { data: employeeProfiles } = await supabase
-    //             .from('profiles')
-    //             .select('id, name');
-
-    //         const empMap = new Map(employeeProfiles?.map((e: any) => [e.id, e.name]));
-
-    //         const list = (clientData || []).map((c: any) => {
-    //             const assignment = assignments?.find((a: any) => a.client_id === c.id);
-    //             return {
-    //                 ...c,
-    //                 assigned_employee_name: assignment ? empMap.get(assignment.user_id) : undefined,
-    //             };
-    //         });
-
-    //         setClients(list);
-    //     } catch (err) {
-    //         console.error('Error loading clients:', err);
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // };
-
     const loadClients = async () => {
-    setLoading(true);
-    try {
-        // Fetch all clients (no inner join)
-        const { data: clientData, error } = await supabase
-            .from('clients')
-            .select('*')
-            .order('created_at', { ascending: false });
+        setLoading(true);
+        try {
+            const { data: clientData, error } = await supabase
+                .from('clients')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-        if (error) throw error;
+            if (error) throw error;
 
-        // Fetch assignments separately
-        const { data: assignments } = await supabase
-            .from('employee_clients')
-            .select('client_id, user_id');
+            const { data: assignments } = await supabase
+                .from('employee_clients')
+                .select('client_id, user_id');
 
-        const { data: employeeProfiles } = await supabase
-            .from('profiles')
-            .select('id, name');
+            const { data: employeeProfiles } = await supabase
+                .from('profiles')
+                .select('id, name');
 
-        const empMap = new Map(employeeProfiles?.map((e: any) => [e.id, e.name]));
+            const empMap = new Map(employeeProfiles?.map((e: any) => [e.id, e.name]));
 
-        const list = (clientData || []).map((c: any) => {
-            const assignment = assignments?.find((a: any) => a.client_id === c.id);
-            return {
-                ...c,
-                assigned_employee_name: assignment ? empMap.get(assignment.user_id) : undefined,
-            };
-        });
+            const list = (clientData || []).map((c: any) => {
+                const assignment = assignments?.find((a: any) => a.client_id === c.id);
+                return {
+                    ...c,
+                    assigned_employee_name: assignment ? empMap.get(assignment.user_id) : undefined,
+                };
+            });
 
-        setClients(list);
-    } catch (err) {
-        console.error('Error loading clients:', err);
-    } finally {
-        setLoading(false);
-    }
-};
+            setClients(list);
+        } catch (err) {
+            console.error('Error loading clients:', err);
+            toast.error('Failed to load clients');
+        } finally {
+            setLoading(false);
+        }
+    };
 
 
     const loadEmployees = async () => {
-    try {
-        // 1️⃣ Fetch all employee user_ids from user_roles
-        const { data: employeeRoles, error: roleError } = await supabase
-            .from('user_roles')
-            .select('user_id')
-            .eq('role', 'employee');
+        try {
+            const { data: employeeRoles, error: roleError } = await supabase
+                .from('user_roles')
+                .select('user_id')
+                .eq('role', 'employee');
 
-        if (roleError) throw roleError;
+            if (roleError) throw roleError;
 
-        // 2️⃣ Extract just the user IDs into an array
-        const employeeIds = (employeeRoles || []).map(r => r.user_id);
+            const employeeIds = (employeeRoles || []).map((r) => r.user_id);
 
-        if (employeeIds.length === 0) {
-            setEmployees([]);
-            return;
+            if (employeeIds.length === 0) {
+                setEmployees([]);
+                return;
+            }
+
+            const { data: employeesData, error: empError } = await supabase
+                .from('profiles')
+                .select('id, name')
+                .in('id', employeeIds);
+
+            if (empError) throw empError;
+
+            setEmployees(employeesData || []);
+        } catch (err) {
+            console.error('Error loading employees:', err);
+            toast.error('Failed to load employees');
         }
-
-        // 3️⃣ Fetch employee profiles using the array of IDs
-        const { data: employeesData, error: empError } = await supabase
-            .from('profiles')
-            .select('id, name')
-            .in('id', employeeIds);
-
-        if (empError) throw empError;
-
-        setEmployees(employeesData || []);
-    } catch (err) {
-        console.error('Error loading employees:', err);
-    }
-};
+    };
 
 
     const openAssignDialog = (client: Client) => {
@@ -175,6 +172,16 @@ export default function Clients() {
 
             if (error) throw error;
 
+            const { error: clientAssignError } = await supabase
+                .from('clients')
+                .update({
+                    assigned_employee_id: selectedEmployeeId,
+                    assigned_to_employee_at: new Date().toISOString(),
+                })
+                .eq('id', selectedClient.id);
+
+            if (clientAssignError) throw clientAssignError;
+
             toast.success('Client assigned successfully');
             setAssignDialogOpen(false);
             setSelectedClient(null);
@@ -185,6 +192,89 @@ export default function Clients() {
             toast.error(err?.message || 'Failed to assign client');
         } finally {
             setAssigning(false);
+        }
+    };
+
+    const openEditDialog = (client: Client) => {
+        setEditingClient(client);
+        setEditForm({
+            full_name: client.full_name,
+            phone: client.phone,
+            application_type: client.application_type as ApplicationType,
+            status: client.status as ClientStatus,
+        });
+        setEditDialogOpen(true);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingClient) return;
+
+        const payload = {
+            full_name: editForm.full_name.trim(),
+            phone: editForm.phone.trim(),
+            application_type: editForm.application_type,
+            status: editForm.status,
+        };
+
+        if (!payload.full_name || !payload.phone) {
+            toast.error('Full name and phone are required');
+            return;
+        }
+
+        setSavingEdit(true);
+        try {
+            const { error } = await supabase
+                .from('clients')
+                .update(payload)
+                .eq('id', editingClient.id);
+
+            if (error) throw error;
+
+            toast.success('Client updated successfully');
+            setEditDialogOpen(false);
+            setEditingClient(null);
+            await loadClients();
+        } catch (err: any) {
+            console.error('Client update failed:', err);
+            toast.error(err?.message || 'Failed to update client');
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
+    const openDeleteDialog = (client: Client) => {
+        setDeletingClient(client);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDeleteClient = async () => {
+        if (!deletingClient) return;
+
+        setDeleting(true);
+        try {
+            const { error: assignmentDeleteError } = await supabase
+                .from('employee_clients')
+                .delete()
+                .eq('client_id', deletingClient.id);
+
+            if (assignmentDeleteError) throw assignmentDeleteError;
+
+            const { error } = await supabase
+                .from('clients')
+                .delete()
+                .eq('id', deletingClient.id);
+
+            if (error) throw error;
+
+            toast.success('Client deleted successfully');
+            setDeleteDialogOpen(false);
+            setDeletingClient(null);
+            await loadClients();
+        } catch (err: any) {
+            console.error('Client delete failed:', err);
+            toast.error(err?.message || 'Failed to delete client');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -260,16 +350,39 @@ export default function Clients() {
                                     <TableCell>{client.assigned_employee_name ?? '—'}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-2">
-                                            <Button variant="ghost" size="sm" asChild>
-                                                <Link to={`/clients/${client.id}`}>View</Link>
+                                            <Button variant="ghost" size="icon" asChild title="View details" aria-label="View details">
+                                                <Link to={`/clients/${client.id}`}>
+                                                    <Eye className="h-4 w-4" />
+                                                </Link>
                                             </Button>
                                             <Button
-                                                variant="secondary"
-                                                size="sm"
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Edit client"
+                                                aria-label="Edit client"
+                                                onClick={() => openEditDialog(client)}
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 disabled={!!client.assigned_employee_name}
+                                                title={client.assigned_employee_name ? 'Already assigned' : 'Assign to employee'}
+                                                aria-label={client.assigned_employee_name ? 'Already assigned' : 'Assign to employee'}
                                                 onClick={() => openAssignDialog(client)}
                                             >
-                                                {client.assigned_employee_name ? 'Assigned' : 'Assign to Employee'}
+                                                <UserPlus className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Delete client"
+                                                aria-label="Delete client"
+                                                onClick={() => openDeleteDialog(client)}
+                                                className="text-destructive hover:text-destructive"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
                                     </TableCell>
@@ -308,6 +421,109 @@ export default function Clients() {
                             </Button>
                             <Button onClick={handleAssign} disabled={!selectedEmployeeId || assigning}>
                                 {assigning ? 'Assigning...' : 'Assign'}
+                            </Button>
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Client</DialogTitle>
+                        <DialogDescription>
+                            Update details for <strong>{editingClient?.full_name}</strong>
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 mt-2">
+                        <div className="space-y-1">
+                            <label className="block text-sm">Full name</label>
+                            <Input
+                                value={editForm.full_name}
+                                onChange={(e) => setEditForm((prev) => ({ ...prev, full_name: e.target.value }))}
+                                placeholder="Client full name"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-sm">Phone</label>
+                            <Input
+                                value={editForm.phone}
+                                onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
+                                placeholder="Phone number"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-sm">Application Type</label>
+                            <select
+                                className="w-full p-2 border rounded bg-background"
+                                value={editForm.application_type}
+                                onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                        ...prev,
+                                        application_type: e.target.value as ApplicationType,
+                                    }))
+                                }
+                            >
+                                {APPLICATION_TYPES.map((type) => (
+                                    <option key={type} value={type}>
+                                        {type.replace('_', ' ')}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-sm">Status</label>
+                            <select
+                                className="w-full p-2 border rounded bg-background"
+                                value={editForm.status}
+                                onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                        ...prev,
+                                        status: e.target.value as ClientStatus,
+                                    }))
+                                }
+                            >
+                                {CLIENT_STATUSES.map((status) => (
+                                    <option key={status} value={status}>
+                                        {status.replace(/_/g, ' ')}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <div className="flex gap-2 mt-4">
+                            <Button variant="ghost" onClick={() => setEditDialogOpen(false)} disabled={savingEdit}>
+                                Cancel
+                            </Button>
+                            <Button onClick={handleSaveEdit} disabled={savingEdit}>
+                                {savingEdit ? 'Saving...' : 'Save Changes'}
+                            </Button>
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Client</DialogTitle>
+                        <DialogDescription>
+                            This action cannot be undone. Are you sure you want to delete <strong>{deletingClient?.full_name}</strong>?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <div className="flex gap-2 mt-4">
+                            <Button variant="ghost" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+                                Cancel
+                            </Button>
+                            <Button variant="destructive" onClick={handleDeleteClient} disabled={deleting}>
+                                {deleting ? 'Deleting...' : 'Delete'}
                             </Button>
                         </div>
                     </DialogFooter>

@@ -1,8 +1,34 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/StatusBadge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { toast } from 'sonner';
 import { FileText, Users, DollarSign, Clock } from 'lucide-react';
+
+interface UnassignedClient {
+  id: string;
+  full_name: string;
+  phone: string;
+  status: string;
+  created_at: string;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+}
 
 export default function Dashboard() {
   const { role, user } = useAuth();
@@ -12,6 +38,12 @@ export default function Dashboard() {
     inProgress: 0,
     completed: 0,
   });
+  const [unassignedClients, setUnassignedClients] = useState<UnassignedClient[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<UnassignedClient | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [assigning, setAssigning] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,7 +51,80 @@ export default function Dashboard() {
     if (!user || !role) return;
 
     loadStats();
+    if (role === 'admin') {
+      loadEmployees();
+    }
   }, [role, user]);
+
+  const loadEmployees = async () => {
+    try {
+      const { data: employeeRoles, error: roleError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'employee');
+
+      if (roleError) throw roleError;
+
+      const employeeIds = (employeeRoles || []).map((r: any) => r.user_id);
+
+      if (employeeIds.length === 0) {
+        setEmployees([]);
+        return;
+      }
+
+      const { data: employeeProfiles, error: empError } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', employeeIds);
+
+      if (empError) throw empError;
+
+      setEmployees(employeeProfiles || []);
+    } catch (error) {
+      console.error('Error loading employees:', error);
+      setEmployees([]);
+    }
+  };
+
+  const openAssignDialog = (client: UnassignedClient) => {
+    setSelectedClient(client);
+    setSelectedEmployeeId('');
+    setAssignDialogOpen(true);
+  };
+
+  const handleAssign = async () => {
+    if (!selectedClient || !selectedEmployeeId) return;
+
+    setAssigning(true);
+    try {
+      const { error } = await supabase
+        .from('employee_clients')
+        .insert({ client_id: selectedClient.id, user_id: selectedEmployeeId });
+
+      if (error) throw error;
+
+      const { error: clientAssignError } = await supabase
+        .from('clients')
+        .update({
+          assigned_employee_id: selectedEmployeeId,
+          assigned_to_employee_at: new Date().toISOString(),
+        })
+        .eq('id', selectedClient.id);
+
+      if (clientAssignError) throw clientAssignError;
+
+      toast.success('Client assigned successfully');
+      setAssignDialogOpen(false);
+      setSelectedClient(null);
+      setSelectedEmployeeId('');
+      await loadStats();
+    } catch (error: any) {
+      console.error('Error assigning client:', error);
+      toast.error(error?.message || 'Failed to assign client');
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   const loadStats = async () => {
     if (!role) return;  // Prevent undefined role crash
@@ -45,12 +150,25 @@ export default function Dashboard() {
           .select('*', { count: 'exact', head: true })
           .eq('status', 'pdf_printed');
 
+        const { data: allClients } = await supabase
+          .from('clients')
+          .select('id, full_name, phone, status, created_at')
+          .order('created_at', { ascending: false });
+
+        const { data: assignments } = await supabase
+          .from('employee_clients')
+          .select('client_id');
+
+        const assignedClientIds = new Set((assignments || []).map((a: any) => a.client_id));
+        const unassigned = (allClients || []).filter((client: any) => !assignedClientIds.has(client.id));
+
         setStats({
           totalClients: totalClients || 0,
           pendingPayments: pendingPayments || 0,
           inProgress: inProgress || 0,
           completed: completed || 0,
         });
+        setUnassignedClients(unassigned);
       } else if (role === 'employee') {
         // Employees assignments are stored in `employee_clients` (not the
         // `assigned_employee_id` column). Count by looking up assignments,
@@ -65,6 +183,7 @@ export default function Dashboard() {
 
         if (assignedIds.length === 0) {
           setStats({ totalClients: 0, pendingPayments: 0, inProgress: 0, completed: 0 });
+          setUnassignedClients([]);
         } else {
           const { count: totalClients } = await supabase
             .from('clients')
@@ -84,6 +203,7 @@ export default function Dashboard() {
             inProgress: inProgress || 0,
             completed: 0,
           });
+          setUnassignedClients([]);
         }
       } else if (role === 'payer') {
         const { count: totalClients } = await supabase
@@ -103,9 +223,11 @@ export default function Dashboard() {
           inProgress: 0,
           completed: 0,
         });
+        setUnassignedClients([]);
       }
     } catch (error) {
       console.error('Error loading stats:', error);
+      setUnassignedClients([]);
     } finally {
       setLoading(false);
     }
@@ -224,6 +346,97 @@ export default function Dashboard() {
           </>
         )}
       </div>
+
+      {role === 'admin' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Unassigned Clients</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {unassignedClients.length === 0 ? (
+              <p className="text-sm text-muted-foreground">All clients are currently assigned to an employee.</p>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {unassignedClients.slice(0, 8).map((client) => (
+                      <TableRow key={client.id}>
+                        <TableCell className="font-medium">{client.full_name}</TableCell>
+                        <TableCell>{client.phone}</TableCell>
+                        <TableCell><StatusBadge status={client.status as any} /></TableCell>
+                        <TableCell>{new Date(client.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button size="sm" variant="secondary" onClick={() => openAssignDialog(client)}>
+                              Assign to Employee
+                            </Button>
+                            <Button asChild variant="outline" size="sm">
+                              <Link to={`/clients/${client.id}`}>View</Link>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {unassignedClients.length > 8 && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Showing 8 of {unassignedClients.length} unassigned clients.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={assignDialogOpen} onOpenChange={(open) => setAssignDialogOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Client</DialogTitle>
+            <DialogDescription>
+              Assign <strong>{selectedClient?.full_name}</strong> to an employee.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <label className="text-sm">Employee</label>
+            <select
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              value={selectedEmployeeId}
+              onChange={(e) => setSelectedEmployeeId(e.target.value)}
+            >
+              <option value="">Select employee</option>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>{employee.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setAssignDialogOpen(false)}
+              disabled={assigning}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAssign} disabled={!selectedEmployeeId || assigning}>
+              {assigning ? 'Assigning...' : 'Assign'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

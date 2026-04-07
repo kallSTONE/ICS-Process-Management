@@ -121,7 +121,7 @@ export default function ClientDetails() {
                 application_number: applicationNumber,
                 ep_number: epNumber || null,
                 employee_screenshot_url: screenshotUrl,
-                status: "ics_payment_pending",
+                status: "in_progress",
             };
 
             const res = await supabase
@@ -139,7 +139,7 @@ export default function ClientDetails() {
 
             // Refresh client row (separate select to avoid PostgREST content-negotiation issues)
             await loadClient();
-            toast.success("Initial payment submitted, status set to ICS Payment Pending");
+            toast.success("Employee details submitted, status set to In Progress");
         } catch (err: any) {
             console.error(err);
             toast.error(err?.message || "Failed to submit");
@@ -218,7 +218,7 @@ export default function ClientDetails() {
             </div>
 
             {/* Employee submission */}
-            {role === "employee" && client.status !== "ics_payment_pending" && (
+            {role === "employee" && client.status === "initial_payment_confirmed" && (
                 <div className="p-6 border rounded-lg bg-card shadow-sm">
                     <h2 className="text-lg font-semibold mb-3">Employee Actions</h2>
                     <input
@@ -242,13 +242,13 @@ export default function ClientDetails() {
                         onClick={handleEmployeeSubmit}
                         disabled={submitting || !/^[A-Za-z0-9-]+$/.test(applicationNumber) || !/^[A-Za-z0-9-]+$/.test(epNumber)}
                     >
-                        {submitting ? "Submitting..." : "Submit Initial Payment"}
+                        {submitting ? "Submitting..." : "Submit EP and Application"}
                     </Button>
                 </div>
             )}
 
             {/* Admin/Payer ICS confirmation */}
-            {(role === "admin" || role === "payer") && client.status === "ics_payment_pending" && (
+            {(role === "admin" || role === "payer") && (client.status === "in_progress" || client.status === "ics_payment_pending") && (
                 <div className="p-6 border rounded-lg bg-card shadow-sm">
                     <h2 className="text-lg font-semibold mb-3">ICS Payment</h2>
                     <Info label="Application Number" value={client.application_number} />

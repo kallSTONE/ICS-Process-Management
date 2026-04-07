@@ -29,6 +29,8 @@ export function AppSidebar() {
   const { role, signOut, user } = useAuth();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
+  const displayName = user?.user_metadata?.name || user?.email || '';
+  const firstName = String(displayName).trim().split(/\s+/)[0] || 'User';
 
   const adminItems = [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
@@ -70,15 +72,11 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-4">
-          <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
-            <FileText className="h-5 w-5 text-primary-foreground" />
-          </div>
-          {!collapsed && (
-            <div>
-              <span className="font-semibold text-lg text-foreground">PassportFlow</span>
-              <p className="text-muted-foreground text-sm">{user.user_metadata.name}</p>
-            </div>
-          )}
+          <img
+            src={collapsed ? '/logo1.png' : '/logo.png'}
+            alt="Enderase"
+            className="h-10 w-auto object-contain"
+          />
         </div>
       </SidebarHeader>
 
@@ -112,9 +110,14 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => signOut()}>
-              <LogOut className="h-4 w-4" />
-              {!collapsed && <span>Logout</span>}
+            <SidebarMenuButton onClick={() => signOut()} className="group">
+              <LogOut className="h-4 w-4 transition-colors group-hover:text-red-500" />
+              {!collapsed && (
+                <div className="flex flex-col items-start leading-tight">
+                  <span>Logout</span>
+                  <span className="text-xs text-muted-foreground">{firstName}</span>
+                </div>
+              )}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

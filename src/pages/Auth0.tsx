@@ -61,7 +61,7 @@ export default function Auth() {
             <div className="h-10 w-10 bg-primary rounded-lg flex items-center justify-center">
               <FileText className="h-6 w-6 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">PassportFlow</h1>
+            <h1 className="text-2xl font-bold text-foreground">Enderase</h1>
           </div>
         </div>
 

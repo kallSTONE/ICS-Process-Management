@@ -154,6 +154,10 @@ All colors MUST be HSL.
 }
 
 @layer base {
+  html {
+    zoom: 90%;
+  }
+
   * {
     @apply border-border;
   }
