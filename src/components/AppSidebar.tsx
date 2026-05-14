@@ -34,10 +34,10 @@ export function AppSidebar() {
 
   const adminItems = [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+    { title: 'Payments', url: '/payments', icon: DollarSign },
     { title: 'Clients', url: '/clients', icon: FileText },
     { title: 'Create Client', url: '/clients/create', icon: ClipboardList },
     { title: 'Users', url: '/users', icon: Users },
-    { title: 'Payments', url: '/payments', icon: DollarSign },
     { title: 'Audit History', url: '/audit', icon: History },
   ];
 
@@ -69,8 +69,8 @@ export function AppSidebar() {
   const menuItems = getMenuItems();
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader>
+    <Sidebar collapsible="icon" className="min-h-screen">
+      <SidebarHeader className="border-blue-900">
         <div className="flex items-center gap-2 px-2 py-4">
           <img
             src={collapsed ? '/logo1.png' : '/logo.png'}
@@ -80,7 +80,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="flex-1 overflow-y-auto">
         <SidebarGroup>
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -107,7 +107,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="border-blue-900">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={() => signOut()} className="group">

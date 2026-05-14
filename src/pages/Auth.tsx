@@ -100,21 +100,13 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12 ">
       <div className="w-full max-w-md">
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center gap-2">
-            <div className="h-10 w-10 bg-primary rounded-lg flex items-center justify-center">
-              <FileText className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">Enderase</h1>
-          </div>
-        </div>
-
         <Card>
-          <CardHeader>
-            <CardTitle>Welcome</CardTitle>
-            <CardDescription>Passport application system</CardDescription>
+          <CardHeader className='items-center'>            
+            <img src="/logo.png" alt="endere logo" className='w-48 my-4'/>
+            <CardTitle> <div className="text-center"> Welcome</div></CardTitle>
+            <CardDescription><p className='text-center'>Passport application system</p></CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="login">
